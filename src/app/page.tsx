@@ -5,12 +5,10 @@ import { AppProviders } from "@/context";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ChatContainer } from "@/components/chat/ChatContainer";
-import { DocIngestModal } from "@/components/modals/DocIngestModal";
 import { LoginModal } from "@/components/modals/LoginModal";
 
 const SkyGPTApp = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [docModalOpen, setDocModalOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   return (
@@ -26,7 +24,6 @@ const SkyGPTApp = () => {
         {/* Top Header */}
         <Header
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onOpenDocModal={() => setDocModalOpen(true)}
           onOpenLoginModal={() => setLoginModalOpen(true)}
         />
 
@@ -34,12 +31,7 @@ const SkyGPTApp = () => {
         <ChatContainer />
       </div>
 
-      {/* 3. Floating Modals */}
-      <DocIngestModal
-        isOpen={docModalOpen}
-        onClose={() => setDocModalOpen(false)}
-      />
-
+      {/* 3. Floating Login Modal */}
       <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
