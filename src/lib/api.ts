@@ -129,6 +129,7 @@ export const api = {
       conversationId: string,
       content: string,
       agentType: AgentType = "auto",
+      imageUrl?: string,
     ): Promise<SendMessageResponse> => {
       const res = await request<ApiResponse<SendMessageResponse>>(
         `/api/v1/chat/conversations/${conversationId}/messages`,
@@ -137,10 +138,40 @@ export const api = {
           body: JSON.stringify({
             content,
             agentType,
+            imageUrl,
           }),
         },
       );
       return res.data as SendMessageResponse;
+    },
+
+    uploadFile: async (
+      file: File,
+      conversationId?: string,
+    ): Promise<{
+      fileName: string;
+      fileUrl: string;
+      isImage: boolean;
+      isPdf: boolean;
+      chunkCount: number;
+    }> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (conversationId) {
+        formData.append("conversationId", conversationId);
+      }
+
+      const res = await fetch(`${GATEWAY_URL}/api/v1/chat/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "File upload failed");
+      }
+      return data.data;
     },
   },
 

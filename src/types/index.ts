@@ -42,6 +42,7 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   agentUsed?: AgentType;
+  imageUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }

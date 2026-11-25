@@ -10,7 +10,20 @@ export interface ParsedFile {
   content: string;
   isImage: boolean;
   previewUrl?: string;
+  base64Data?: string;
 }
+
+/**
+ * Converts a browser File into a base64 Data URL (e.g. data:image/png;base64,...)
+ */
+export const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
 
 /**
  * Parses user-selected files into text content or image previews
@@ -20,6 +33,13 @@ export const parseUploadedFile = async (file: File): Promise<ParsedFile> => {
 
   if (isImage) {
     const previewUrl = URL.createObjectURL(file);
+    let base64Data: string | undefined = undefined;
+    try {
+      base64Data = await fileToBase64(file);
+    } catch (err) {
+      console.warn("[fileToBase64 failed]:", err);
+    }
+
     return {
       name: file.name,
       size: file.size,
@@ -27,6 +47,7 @@ export const parseUploadedFile = async (file: File): Promise<ParsedFile> => {
       content: `[Attached Image: ${file.name}]`,
       isImage: true,
       previewUrl,
+      base64Data,
     };
   }
 

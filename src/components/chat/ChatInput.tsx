@@ -13,7 +13,7 @@ interface ChatInputProps {
 }
 
 export const ChatInput = ({ externalFile, onClearExternalFile }: ChatInputProps) => {
-  const { sendMessage, isGenerating, activeConversation, setSelectedAgent } = useChat();
+  const { sendMessage, isGenerating, activeConversation, startNewConversation, setSelectedAgent } = useChat();
   const [content, setContent] = useState("");
   const [attachedFile, setAttachedFile] = useState<ParsedFile | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -40,18 +40,29 @@ export const ChatInput = ({ externalFile, onClearExternalFile }: ChatInputProps)
   const handleFileSelected = async (file: File) => {
     setIsProcessingFile(true);
     try {
+      // 1. Ensure a valid active conversation ID exists so document chunks are bound to this thread
+      let convId = activeConversation?._id;
+      if (!convId) {
+        convId = (await startNewConversation()) || undefined;
+      }
+
+      // 2. Upload file to Chat service storage & ingest into RAG vector store
+      const uploaded = await api.chat.uploadFile(file, convId);
+
       const parsed = await parseUploadedFile(file);
+      // Attach server-stored fileUrl
+      parsed.previewUrl = uploaded.fileUrl.startsWith("http")
+        ? uploaded.fileUrl
+        : `${process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000"}${uploaded.fileUrl}`;
+
       setAttachedFile(parsed);
 
-      // If a document is attached, automatically index it into conversation memory
-      if (!parsed.isImage && parsed.content.length > 20) {
-        const convId = activeConversation?._id || "default-session";
-        await api.agents.ingestDocument(convId, parsed.content, parsed.name);
-        // Automatically switch agent to Document Analyst
+      // If a document was uploaded, switch mode to Document Analyst
+      if (!parsed.isImage) {
         setSelectedAgent("pdf");
       }
     } catch (err) {
-      console.error("[File processing failed]:", err);
+      console.error("[File upload failed]:", err);
     } finally {
       setIsProcessingFile(false);
     }
@@ -70,10 +81,16 @@ export const ChatInput = ({ externalFile, onClearExternalFile }: ChatInputProps)
     if ((!content.trim() && !attachedFile) || isGenerating) return;
 
     let finalPrompt = content.trim();
+    let attachedImageUrl: string | undefined = undefined;
 
     if (attachedFile) {
       if (attachedFile.isImage) {
-        finalPrompt = `${finalPrompt}\n\n[Context: User attached image ${attachedFile.name}]`.trim();
+        // Send the uploaded server fileUrl; the backend agent service automatically resolves it to base64!
+        // This keeps the JSON payload lightweight and avoids 413 Gateway errors.
+        attachedImageUrl = attachedFile.previewUrl;
+        if (!finalPrompt) {
+          finalPrompt = "Please analyze this image in detail.";
+        }
       } else {
         finalPrompt = `${finalPrompt}\n\n(Referencing attached document: ${attachedFile.name})`.trim();
       }
@@ -85,7 +102,7 @@ export const ChatInput = ({ externalFile, onClearExternalFile }: ChatInputProps)
       textareaRef.current.style.height = "auto";
     }
 
-    await sendMessage(finalPrompt);
+    await sendMessage(finalPrompt, attachedImageUrl);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

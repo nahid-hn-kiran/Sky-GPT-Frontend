@@ -21,7 +21,7 @@ interface ChatContextType {
   selectConversation: (id: string) => Promise<void>;
   startNewConversation: () => Promise<string | null>;
   deleteConversation: (id: string) => Promise<void>;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, imageUrl?: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -91,8 +91,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // 5. Send message with optimistic update & LangGraph generation
-  const sendMessage = async (content: string) => {
-    if (!content.trim() || isGenerating) return;
+  const sendMessage = async (content: string, imageUrl?: string) => {
+    if ((!content.trim() && !imageUrl) || isGenerating) return;
 
     let targetConvId = activeConversation?._id;
 
@@ -106,7 +106,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       _id: `temp-${Date.now()}`,
       conversationId: targetConvId,
       role: "user",
-      content: content.trim(),
+      content: content.trim() || "Analyze this attached image",
       createdAt: new Date().toISOString(),
     };
 
@@ -127,6 +127,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         targetConvId,
         content.trim(),
         selectedAgent,
+        imageUrl,
       );
 
       // Replace optimistic message and append real assistant reply
